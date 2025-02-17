@@ -1,5 +1,5 @@
 // import makeWASocket, {useMultiFileAuthState } from "baileys";
-const { makeWASocket, useMultiFileAuthState, Browsers, getContentType, downloadContentFromMessage, } = require('baileys');
+const { makeWASocket, useMultiFileAuthState, Browsers, getContentType, downloadContentFromMessage } = require('baileys');
 const {Boom} = require('@hapi/boom');
 const NodeCache = require('node-cache');
 const readline = require('readline');
@@ -10,14 +10,14 @@ const crypto = require('crypto');
 const {downloadImage, getImageLink, searchImage}  = require('./commands/pixiv');
 
 
-const env = process.env
-
-
 async function connectToWhatsapp() {
     const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false });
     const { state, saveCreds } = await useMultiFileAuthState('auth_file_baileys');
     const sock = makeWASocket({
         auth: state,
+        generateHighQualityLinkPreview: true,
+        syncFullHistory: false,
+        defaultQueryTimeoutMs: 0,
         printQRInTerminal: false,
         cachedGroupMetadata: async (id) => await groupCache.get(id),
     });
@@ -73,9 +73,46 @@ async function connectToWhatsapp() {
                 if (!isSelf) {
                     if (command == "ping") {
                         sock.sendMessage(groupID, { text: "Bot telah on!" });
-                        sock.groupParticipantsUpdate("", 'remove')
                     } else if (command == "menu") {
                         
+                    } else if (command == "setintro") {
+                        await sock.sendPresenceUpdate('available', groupID);
+                        if (groupID.includes('@g.us')) {
+                            try {
+                                let data = readJsonData('./jsonData/intro.json')
+                                data = data.find((item) => item.groupId === groupID)
+                                if (data) {
+                                    console.log(`JSON Data Intro :\n${data}`)
+                                    data.intro = args.intro;
+                                    try {
+                                        fs.writeFileSync('./jsonData/intro.json', JSON.stringify(data, null, 2), 'utf-8');
+                                        sock.sendMessage(groupID, { text: "Berhasil mengupdate intro" }, {quoted: message});
+                                    } catch (e) {
+                                        console.log("Error : ", e)
+                                        sock.sendMessage(groupID, { text: "Gagal mengupdate intro" }, {quoted: message});
+                                    }
+                                } else {
+                                    sock.sendMessage(groupID, { text: "Data grup tidak ditemukan, segera dibuatkan intro" }, {quoted: message});
+                                    const inputData = {
+                                        groupId: groupID,
+                                        createdBy: message.key.participant,
+                                        intro: args.intro
+                                    }
+                                    data.push(inputData);
+                                    try {
+                                        fs.writeFileSync('./jsonData/intro.json', JSON.stringify(data, null, 2), 'utf-8')
+                                        sock.sendMessage(groupID, { text: "Intro sudah berhasil ditambah" }, { quoted: message });
+                                    } catch (e) {
+                                        console.log("Error : ", e)
+                                        sock.sendMessage(groupID, { text: "Data gagal disimpan" }, { quoted: message });
+                                    }
+                                }
+                            } catch (e) {
+                                console.log("Error : ", e)
+                            }
+                        } else {
+                            sock.sendMessage(groupID, { text: "Anda sedang tidak berada di grup" }, { quoted: message });
+                        }
                     }
                 }
                 
