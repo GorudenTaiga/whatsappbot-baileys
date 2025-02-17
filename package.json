@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.13",
     "axios": "^1.7.9",
     "baileys": "^6.7.12",
     "boom": "^7.3.0",
