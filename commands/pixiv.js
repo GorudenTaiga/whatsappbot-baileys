@@ -1,11 +1,16 @@
+import axios from 'axios';
+import fs from 'fs';
+
+        
 async function searchImage(title, mode) {
     try {
+        console.log(process.env.PIXIV_SESSID);
         const response = await axios.get(`https://www.pixiv.net/ajax/search/artworks/${title}?word=${title}&mode=${mode}`, {
             headers: {
                 'User-Agent' : 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
                 'Referer' : 'https://www.pixiv.net/',
                 'Accept-Encoding' : 'gzip,deflate,br,zstd',
-                'Cookie' : process.env.PIXIV_SESSID
+                'Cookie': process.env.PIXIV_SESSID
             },
         });
 
@@ -35,7 +40,7 @@ async function getImageLink(id) {
     return originalurl;
 }
 
-async function downloadImage(url, path, id, sock, msg) {
+async function downloadImage(jid, url, path, id, sock, status) {
     try {
         const response = await axios({
             url: url.replace('\\', ''),
@@ -49,18 +54,17 @@ async function downloadImage(url, path, id, sock, msg) {
             }
         });
         console.log(`Content Length : ${response.headers["content-length"]}`)
-        const totalSize = parseInt(response.headers["content-length"].toString())
+        const totalSize = parseInt(response.headers["content-length"])
         let downloadedSize = 0;
         await new Promise((resolve, reject) => {
             const writer = fs.createWriteStream(path);
             response.data.pipe(writer);
             response.data.on('data', (chunk) => {
-                downloadedSize += parseInt(chunk.length.toString());
+                downloadedSize += parseInt(chunk.length);
                 console.log(`Total Size : ${totalSize}`)
                 console.log(`Downloaded Size : ${downloadedSize}`)
-                let progressPercent = Math.round((downloadedSize/totalSize) * 100);
-                sock.sendMessage(jid, { text: `Gambar sedang didownload\n${progressPercent}% ${'='.repeat(progressPercent / 10)}` }, { edit: msg.remoteJid });
             })
+            
             writer.on('finish', resolve);
             writer.on('error', reject);
         });

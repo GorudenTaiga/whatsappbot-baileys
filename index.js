@@ -7,11 +7,12 @@ const axios = require('axios');
 const fs = require('fs');
 const sharp = require('sharp');
 const crypto = require('crypto');
-const {downloadImage, getImageLink, searchImage}  = require('./commands/pixiv');
+require('dotenv').config();
+const { downloadImage, getImageLink, searchImage } = require('./commands/pixiv');
 
 
 async function connectToWhatsapp() {
-    const groupCache = new NodeCache({ stdTTL: 5 * 60, useClones: false });
+    const groupCache = new NodeCache({ stdTTL: 10 * 60, useClones: false });
     const { state, saveCreds } = await useMultiFileAuthState('auth_file_baileys');
     const sock = makeWASocket({
         auth: state,
@@ -73,23 +74,67 @@ async function connectToWhatsapp() {
                 if (!isSelf) {
                     if (command == "ping") {
                         sock.sendMessage(groupID, { text: "Bot telah on!" });
-                    } else if (command == "menu") {
-                        
+                        return;
+                    } else if (command == "pixiv") {
+                        args.count = args.count ? args.count : 1;
+                        args.title = args.title ? args.title : "default";
+                        args.mode = args.mode ? args.mode : "safe";
+
+                        try {
+                            const status = sock.sendMessage(groupID, { text: "Gambar sedang di download..." }, { quoted: message });
+                            const image = await searchImage(args.title, args.mode);
+                            for (let i = 1; i <= parseInt(args.count); i++) {
+                                const randomImage = image[Math.floor(Math.random() * (image.length - 0 + 1) + 0)];
+                                if (image && image.length > 0) {
+                                    const imagePath = `${__dirname}/imageTemp/input/${randomImage.id}.jpg`;
+                                    const originalUrl = await getImageLink(randomImage.id);
+                                    
+                                    await downloadImage(groupID, originalUrl, imagePath, randomImage.id, sock, status);
+                                    
+                                    await sock.sendMessage(groupID, {
+                                        image: {
+                                            url: imagePath
+                                        },
+                                    });
+                                    
+                                    fs.unlinkSync(imagePath);
+                                }
+                            }
+                            console.log(`Length : ${image.length}`);
+                            sock.sendMessage(groupID, { text: `Berikut adalah gambar untuk tag ${args.title}\nJudul : ${args.title}\nMode : ${args.mode}`, buttonReply: [{
+                                            displayText: "Opsi 1",
+                                            id: "id1",
+                                            index: 1
+                                        },
+                                        {
+                                            displayText: "Opsi 2",
+                                            id: "id2",
+                                            index: 2
+                                        }], }, { quoted: message });
+                        } catch (e) {
+                            
+                        }
+
                     } else if (command == "setintro") {
                         await sock.sendPresenceUpdate('available', groupID);
                         if (groupID.includes('@g.us')) {
+                            if (!args.intro) {
+                                sock.sendMessage(groupID, { text: 'Harap gunakan parameter `-intro "text intro"`\n*Jangan lupa tanda petik (" ")' });
+                                return;
+                            }
                             try {
-                                let data = readJsonData('./jsonData/intro.json')
-                                data = data.find((item) => item.groupId === groupID)
-                                if (data) {
-                                    console.log(`JSON Data Intro :\n${data}`)
-                                    data.intro = args.intro;
+                                let data = await JSON.parse(readJsonData('./jsonData/intro.json'));
+                                console.log(`JSON Data Intro :\n${data.toString()}`);
+                                if (data.find((item) => item.groupId === groupID)) {
+                                    data[0].intro = args.intro;
                                     try {
                                         fs.writeFileSync('./jsonData/intro.json', JSON.stringify(data, null, 2), 'utf-8');
-                                        sock.sendMessage(groupID, { text: "Berhasil mengupdate intro" }, {quoted: message});
+                                        sock.sendMessage(groupID, { text: "Berhasil mengupdate intro" }, { quoted: message });
+                                        return;
                                     } catch (e) {
                                         console.log("Error : ", e)
-                                        sock.sendMessage(groupID, { text: "Gagal mengupdate intro" }, {quoted: message});
+                                        sock.sendMessage(groupID, { text: "Gagal mengupdate intro" }, { quoted: message });
+                                        return;
                                     }
                                 } else {
                                     sock.sendMessage(groupID, { text: "Data grup tidak ditemukan, segera dibuatkan intro" }, {quoted: message});
@@ -98,13 +143,15 @@ async function connectToWhatsapp() {
                                         createdBy: message.key.participant,
                                         intro: args.intro
                                     }
-                                    data.push(inputData);
                                     try {
+                                        data.push(inputData)
                                         fs.writeFileSync('./jsonData/intro.json', JSON.stringify(data, null, 2), 'utf-8')
                                         sock.sendMessage(groupID, { text: "Intro sudah berhasil ditambah" }, { quoted: message });
+                                        return;
                                     } catch (e) {
                                         console.log("Error : ", e)
                                         sock.sendMessage(groupID, { text: "Data gagal disimpan" }, { quoted: message });
+                                        return;
                                     }
                                 }
                             } catch (e) {
@@ -143,8 +190,7 @@ const commandsHelp = {
 }
 
 function readJsonData(path) {
-    let rawData = fs.readFileSync(path, 'utf-8')
-    let data = JSON.parse(rawData);
+    let data = fs.readFileSync(path, 'utf-8');
     if (!data) {
         throw new Error("Tidak dapat membaca data");
     }
