@@ -61,8 +61,6 @@ async function downloadImage(jid, url, path, id, sock, status) {
             response.data.pipe(writer);
             response.data.on('data', (chunk) => {
                 downloadedSize += parseInt(chunk.length);
-                console.log(`Total Size : ${totalSize}`)
-                console.log(`Downloaded Size : ${downloadedSize}`)
             })
             
             writer.on('finish', resolve);
