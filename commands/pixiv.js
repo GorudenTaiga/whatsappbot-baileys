@@ -53,14 +53,19 @@ async function downloadImage(jid, url, path, id, sock, status) {
                 'Cookie' : process.env.PIXIV_SESSID
             }
         });
-        console.log(`Content Length : ${response.headers["content-length"]}`)
-        const totalSize = parseInt(response.headers["content-length"])
+        console.log(`Content Length : ${response.headers["content-length"]}`);
         let downloadedSize = 0;
+        const totalSize = parseInt(response.headers["content-length"]);
         await new Promise((resolve, reject) => {
             const writer = fs.createWriteStream(path);
             response.data.pipe(writer);
             response.data.on('data', (chunk) => {
-                downloadedSize += parseInt(chunk.length);
+                let current = chunk.length % 2
+                if (current == 1) {
+                    downloadedSize += parseInt(chunk.length);
+                    let progressPercent = Math.round((downloadedSize/totalSize) * 100);
+                    sock.sendMessage(jid, { text: `Gambar sedang didownload\n${progressPercent}% ${'='.repeat(progressPercent / 10)}`, edit: status });
+                }
             });
             
             writer.on('finish', resolve);

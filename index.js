@@ -93,15 +93,17 @@ async function connectToWhatsapp() {
                                         
                                         await downloadImage(groupID, originalUrl, imagePath, randomImage.id, sock, status.key);
                                         
-                                        await sock.sendMessage(groupID, {
+                                        const sendImage = await sock.sendMessage(groupID, {
                                             image: {
                                                 url: imagePath
                                             },
                                         });
 
-                                        fs.unlink(imagePath, (err) => {
-                                            console.log("Error : ", err);
-                                        });
+                                        if (sendImage) {
+                                            fs.unlink(imagePath, (err) => {
+                                                console.log("Error : ", err);
+                                            });
+                                        }
                                     }
                                 }
                                 console.log(`Length : ${image.length}`);
