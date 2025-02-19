@@ -61,120 +61,121 @@ async function connectToWhatsapp() {
     let isSelf = false;
     sock.ev.on('messages.upsert', async (event) => {
         for (const message of event.messages) {
-            const prefix = 'bot!';
-            const content = message.message.conversation.toString() != null ? message.message.conversation.toString() : message.message.extendedTextMessage.text.toString();
-            const groupID = message.key.remoteJid;
-            const userName = message.pushName || message.key.participant;
-            
-            
-            if (content.toLowerCase().startsWith(prefix)) {
-                const command = content.slice(prefix.length).trim().split(/ +/).shift().toLowerCase();
-                const args = parseArguments(content);
-                console.log(`Message From : ${userName}\nMessage Sent In : ${groupID}\nMessage Content : ${content}\nCommand Used : ${command}\nArgs Used : ${JSON.stringify(args, undefined, 2)}\n\n`);
+            try {
+                const prefix = 'bot!';
+                const content = message.message.conversation.toString() != null ? message.message.conversation.toString() : message.message.extendedTextMessage.text.toString();
+                const groupID = message.key.remoteJid;
+                const userName = message.pushName || message.key.participant;
                 
-                if (!isSelf) {
-                    if (command == "ping") {
-                        sock.sendMessage(groupID, { text: "Bot telah on!" });
-                        return;
-                    } else if (command == "pixiv") {
-                        setImmediate(async () => {
-                            args.count = args.count ? args.count : 1;
-                            args.title = args.title ? args.title : "default";
-                            args.mode = args.mode ? args.mode : "safe";
-    
-                            try {
-                                const status = await sock.sendMessage(groupID, { text: "Gambar sedang di download..." }, { quoted: message });
-                                const image = await searchImage(args.title, args.mode);
-                                for (let i = 1; i <= parseInt(args.count); i++) {
-                                    const randomImage = image[Math.floor(Math.random() * (image.length - 0 + 1) + 0)];
-                                    if (image && image.length > 0) {
-                                        const imagePath = `${__dirname}/imageTemp/input/${randomImage.id}.jpg`;
-                                        const originalUrl = await getImageLink(randomImage.id);
-                                        
-                                        await downloadImage(groupID, originalUrl, imagePath, randomImage.id, sock, status.key);
-                                        
-                                        const sendImage = await sock.sendMessage(groupID, {
-                                            image: {
-                                                url: imagePath
-                                            },
-                                        });
-
-                                        if (sendImage) {
-                                            fs.unlink(imagePath, (err) => {
-                                                console.log("Error : ", err);
+                
+                if (content.toLowerCase().startsWith(prefix)) {
+                    const command = content.slice(prefix.length).trim().split(/ +/).shift().toLowerCase();
+                    const args = parseArguments(content);
+                    console.log(`Message From : ${userName}\nMessage Sent In : ${groupID}\nMessage Content : ${content}\nCommand Used : ${command}\nArgs Used : ${JSON.stringify(args, undefined, 2)}\n\n`);
+                    
+                    if (!isSelf) {
+                        if (command == "ping") {
+                            sock.sendMessage(groupID, { text: "Bot telah on!" });
+                            return;
+                        } else if (command == "pixiv") {
+                            setImmediate(async () => {
+                                args.count = args.count ? args.count : 1;
+                                args.title = args.title ? args.title : "default";
+                                args.mode = args.mode ? args.mode : "safe";
+                                
+                                try {
+                                    const status = await sock.sendMessage(groupID, { text: "Gambar sedang di download...\n*Jika lebih dari 3 menit namun belum mendapatkan gambar, maka hubungi owner" }, { quoted: message });
+                                    const image = await searchImage(args.title, args.mode);
+                                    for (let i = 1; i <= parseInt(args.count); i++) {
+                                        const randomImage = image[Math.floor(Math.random() * (image.length - 0 + 1) + 0)];
+                                        if (image && image.length > 0) {
+                                            const imagePath = `${__dirname}/imageTemp/input/${randomImage.id}.jpg`;
+                                            const originalUrl = await getImageLink(randomImage.id);
+                                            
+                                            await downloadImage(groupID, originalUrl, imagePath, randomImage.id, sock, status.key);
+                                            
+                                            const sendImage = await sock.sendMessage(groupID, {
+                                                image: {
+                                                    url: imagePath
+                                                },
                                             });
+                                            
+                                            if (sendImage) {
+                                                fs.unlink(imagePath, (err) => {
+                                                    console.log("Error : ", err);
+                                                });
+                                            }
                                         }
                                     }
+                                    console.log(`Length : ${image.length}`);
+                                    sock.sendMessage(groupID, { text: `Berikut adalah gambar untuk tag ${args.title}\nJudul : ${args.title}\nMode : ${args.mode}` }, { quoted: message });
+                                } catch (e) {
+                                    console.log("Tidak dapat mengirim gambar : ", e);
                                 }
-                                console.log(`Length : ${image.length}`);
-                                sock.sendMessage(groupID, { text: `Berikut adalah gambar untuk tag ${args.title}\nJudul : ${args.title}\nMode : ${args.mode}` }, { quoted: message });
-                            } catch (e) {
-                                console.log("Tidak dapat mengirim gambar : ", e);
-                            }
-                        });
-                    } else if (command == "setintro") {
-                        await sock.sendPresenceUpdate('available', groupID);
-                        if (groupID.includes('@g.us')) {
-                            if (!args.intro) {
-                                sock.sendMessage(groupID, { text: 'Harap gunakan parameter `-intro "text intro"`\n*Jangan lupa tanda petik (" ")' });
-                                return;
-                            }
-                            try {
-                                let data = await JSON.parse(readJsonData('./jsonData/intro.json'));
-                                console.log(`JSON Data Intro :\n${data.toString()}`);
-                                if (data.find((item) => item.groupId === groupID)) {
-                                    data[0].intro = args.intro;
-                                    try {
-                                        fs.writeFileSync('./jsonData/intro.json', JSON.stringify(data, null, 2), 'utf-8');
-                                        sock.sendMessage(groupID, { text: "Berhasil mengupdate intro" }, { quoted: message });
-                                        return;
-                                    } catch (e) {
-                                        console.log("Error : ", e)
-                                        sock.sendMessage(groupID, { text: "Gagal mengupdate intro" }, { quoted: message });
-                                        return;
-                                    }
-                                } else {
-                                    sock.sendMessage(groupID, { text: "Data grup tidak ditemukan, segera dibuatkan intro" }, {quoted: message});
-                                    const inputData = {
-                                        groupId: groupID,
-                                        createdBy: message.key.participant,
-                                        intro: args.intro
-                                    }
-                                    try {
-                                        data.push(inputData)
-                                        fs.writeFileSync('./jsonData/intro.json', JSON.stringify(data, null, 2), 'utf-8')
-                                        sock.sendMessage(groupID, { text: "Intro sudah berhasil ditambah" }, { quoted: message });
-                                        return;
-                                    } catch (e) {
-                                        console.log("Error : ", e)
-                                        sock.sendMessage(groupID, { text: "Data gagal disimpan" }, { quoted: message });
-                                        return;
-                                    }
+                            });
+                        } else if (command == "setintro") {
+                            await sock.sendPresenceUpdate('available', groupID);
+                            if (groupID.includes('@g.us')) {
+                                if (!args.intro) {
+                                    sock.sendMessage(groupID, { text: 'Harap gunakan parameter `-intro "text intro"`\n*Jangan lupa tanda petik (" ")' });
+                                    return;
                                 }
-                            } catch (e) {
-                                console.log("Error : ", e)
+                                try {
+                                    let data = await JSON.parse(readJsonData('./jsonData/intro.json'));
+                                    console.log(`JSON Data Intro :\n${data.toString()}`);
+                                    if (data.find((item) => item.groupId === groupID)) {
+                                        data[0].intro = args.intro;
+                                        try {
+                                            fs.writeFileSync('./jsonData/intro.json', JSON.stringify(data, null, 2), 'utf-8');
+                                            sock.sendMessage(groupID, { text: "Berhasil mengupdate intro" }, { quoted: message });
+                                            return;
+                                        } catch (e) {
+                                            console.log("Error : ", e)
+                                            sock.sendMessage(groupID, { text: "Gagal mengupdate intro" }, { quoted: message });
+                                            return;
+                                        }
+                                    } else {
+                                        sock.sendMessage(groupID, { text: "Data grup tidak ditemukan, segera dibuatkan intro" }, {quoted: message});
+                                        const inputData = {
+                                            groupId: groupID,
+                                            createdBy: message.key.participant,
+                                            intro: args.intro
+                                        }
+                                        try {
+                                            data.push(inputData)
+                                            fs.writeFileSync('./jsonData/intro.json', JSON.stringify(data, null, 2), 'utf-8')
+                                            sock.sendMessage(groupID, { text: "Intro sudah berhasil ditambah" }, { quoted: message });
+                                            return;
+                                        } catch (e) {
+                                            console.log("Error : ", e)
+                                            sock.sendMessage(groupID, { text: "Data gagal disimpan" }, { quoted: message });
+                                            return;
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.log("Error : ", e)
+                                }
+                            } else {
+                                sock.sendMessage(groupID, { text: "Anda sedang tidak berada di grup" }, { quoted: message });
                             }
+                        }
+                    }
+                    
+                    if (command == "self") {
+                        if (isSelf) {
+                            isSelf = false;
+                            sock.sendMessage(groupID, { text: "Bot kembali aktif!" });
                         } else {
-                            sock.sendMessage(groupID, { text: "Anda sedang tidak berada di grup" }, { quoted: message });
+                            isSelf = true;
+                            sock.sendMessage(groupID, { text: "Bot telah di self, tidak akan merespon command" });
                         }
                     }
                 }
-                
-                if (command == "self") {
-                    if (isSelf) {
-                        isSelf = false;
-                        sock.sendMessage(groupID, { text: "Bot kembali aktif!" });
-                    } else {
-                        isSelf = true;
-                        sock.sendMessage(groupID, { text: "Bot telah di self, tidak akan merespon command" });
-                    }
-                }
+            } catch (e) {
+                console.log("")
             }
         }
     });
-
-    
-
 }
 
 const commandsHelp = {
