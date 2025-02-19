@@ -60,11 +60,9 @@ async function downloadImage(jid, url, path, id, sock, status) {
             const writer = fs.createWriteStream(path);
             response.data.pipe(writer);
             response.data.on('data', (chunk) => {
-                let current = chunk.length % 2
-                if (current == 1) {
-                    downloadedSize += parseInt(chunk.length);
-                    let progressPercent = Math.round((downloadedSize/totalSize) * 100);
-                    sock.sendMessage(jid, { text: `Gambar sedang didownload\n${progressPercent}% ${'='.repeat(progressPercent / 10)}`, edit: status });
+                downloadedSize += parseInt(chunk.length);
+                if (downloadedSize % 10 == 0) {
+                    console.log(downloadedSize);
                 }
             });
             
