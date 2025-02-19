@@ -9,6 +9,7 @@ const sharp = require('sharp');
 const crypto = require('crypto');
 require('dotenv').config();
 const { downloadImage, getImageLink, searchImage } = require('./commands/pixiv');
+const path = require('path');
 
 
 async function connectToWhatsapp() {
@@ -76,45 +77,39 @@ async function connectToWhatsapp() {
                         sock.sendMessage(groupID, { text: "Bot telah on!" });
                         return;
                     } else if (command == "pixiv") {
-                        args.count = args.count ? args.count : 1;
-                        args.title = args.title ? args.title : "default";
-                        args.mode = args.mode ? args.mode : "safe";
+                        setImmediate(async () => {
+                            args.count = args.count ? args.count : 1;
+                            args.title = args.title ? args.title : "default";
+                            args.mode = args.mode ? args.mode : "safe";
+    
+                            try {
+                                const status = await sock.sendMessage(groupID, { text: "Gambar sedang di download..." }, { quoted: message });
+                                const image = await searchImage(args.title, args.mode);
+                                for (let i = 1; i <= parseInt(args.count); i++) {
+                                    const randomImage = image[Math.floor(Math.random() * (image.length - 0 + 1) + 0)];
+                                    if (image && image.length > 0) {
+                                        const imagePath = `${__dirname}/imageTemp/input/${randomImage.id}.jpg`;
+                                        const originalUrl = await getImageLink(randomImage.id);
+                                        
+                                        await downloadImage(groupID, originalUrl, imagePath, randomImage.id, sock, status.key);
+                                        
+                                        await sock.sendMessage(groupID, {
+                                            image: {
+                                                url: imagePath
+                                            },
+                                        });
 
-                        try {
-                            const status = sock.sendMessage(groupID, { text: "Gambar sedang di download..." }, { quoted: message });
-                            const image = await searchImage(args.title, args.mode);
-                            for (let i = 1; i <= parseInt(args.count); i++) {
-                                const randomImage = image[Math.floor(Math.random() * (image.length - 0 + 1) + 0)];
-                                if (image && image.length > 0) {
-                                    const imagePath = `${__dirname}/imageTemp/input/${randomImage.id}.jpg`;
-                                    const originalUrl = await getImageLink(randomImage.id);
-                                    
-                                    await downloadImage(groupID, originalUrl, imagePath, randomImage.id, sock, status);
-                                    
-                                    await sock.sendMessage(groupID, {
-                                        image: {
-                                            url: imagePath
-                                        },
-                                    });
-                                    
-                                    fs.unlinkSync(imagePath);
+                                        fs.unlink(imagePath, (err) => {
+                                            console.log("Error : ", err);
+                                        });
+                                    }
                                 }
+                                console.log(`Length : ${image.length}`);
+                                sock.sendMessage(groupID, { text: `Berikut adalah gambar untuk tag ${args.title}\nJudul : ${args.title}\nMode : ${args.mode}` }, { quoted: message });
+                            } catch (e) {
+                                console.log("Tidak dapat mengirim gambar : ", e);
                             }
-                            console.log(`Length : ${image.length}`);
-                            sock.sendMessage(groupID, { text: `Berikut adalah gambar untuk tag ${args.title}\nJudul : ${args.title}\nMode : ${args.mode}`, buttonReply: [{
-                                            displayText: "Opsi 1",
-                                            id: "id1",
-                                            index: 1
-                                        },
-                                        {
-                                            displayText: "Opsi 2",
-                                            id: "id2",
-                                            index: 2
-                                        }], }, { quoted: message });
-                        } catch (e) {
-                            
-                        }
-
+                        });
                     } else if (command == "setintro") {
                         await sock.sendPresenceUpdate('available', groupID);
                         if (groupID.includes('@g.us')) {

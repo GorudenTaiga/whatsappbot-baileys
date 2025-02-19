@@ -61,7 +61,7 @@ async function downloadImage(jid, url, path, id, sock, status) {
             response.data.pipe(writer);
             response.data.on('data', (chunk) => {
                 downloadedSize += parseInt(chunk.length);
-            })
+            });
             
             writer.on('finish', resolve);
             writer.on('error', reject);
