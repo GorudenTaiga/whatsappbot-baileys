@@ -1,5 +1,5 @@
 // import makeWASocket, {useMultiFileAuthState } from "baileys";
-const { makeWASocket, useMultiFileAuthState, Browsers, getContentType, downloadContentFromMessage } = require('baileys');
+const { makeWASocket, useMultiFileAuthState, Browsers, getContentType, downloadContentFromMessage, } = require('baileys');
 const {Boom} = require('@hapi/boom');
 const NodeCache = require('node-cache');
 const readline = require('readline');
@@ -8,8 +8,10 @@ const fs = require('fs');
 const sharp = require('sharp');
 const crypto = require('crypto');
 require('dotenv').config();
-const { downloadImage, getImageLink, searchImage } = require('./commands/pixiv');
+const { downloadImage, getImageLink, searchImage, getPage } = require('./commands/pixiv');
 const path = require('path');
+const { WebSocketClient } = require('baileys/lib/Socket/Client');
+const { stringify } = require('querystring');
 
 
 async function connectToWhatsapp() {
@@ -38,7 +40,11 @@ async function connectToWhatsapp() {
     sock.ev.on('group-participants.update', async (event) => {
         const metadata = await sock.groupMetadata(event.id);
         groupCache.set(event.id, metadata);
-        console.log(`Perubahan pada grup ${event.participants[0]}`)
+        const jsonData = JSON.parse(readJsonData('./jsonData/intro.json'));
+        
+        if (event.action == 'add') {
+            
+        }
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -66,6 +72,8 @@ async function connectToWhatsapp() {
                 const content = message.message.conversation.toString() != null ? message.message.conversation.toString() : message.message.extendedTextMessage.text.toString();
                 const groupID = message.key.remoteJid;
                 const userName = message.pushName || message.key.participant;
+
+                
                 
                 
                 if (content.toLowerCase().startsWith(prefix)) {
@@ -77,40 +85,81 @@ async function connectToWhatsapp() {
                         if (command == "ping") {
                             sock.sendMessage(groupID, { text: "Bot telah on!" });
                             return;
+                        } else if (command == "button") {
+                            // Buttons has deprecated from baileys
+                            //
+                            // sock.sendMessage(groupID, {
+                            //     buttonsMessage: {
+                            //         footerText: `Jika Tidak Bisa Tekan Tombol, Ketik ick @Tag Orang --force`,
+                            //         contentText:
+                            //             "*WARNING* | Yang Di Kick Adalah Admin Apakah Anda Yakin?",
+                            //         buttons: [
+                            //             {
+                            //             buttonId: `ping`,
+                            //             buttonText: {
+                            //                 displayText: "Ya",
+                            //             },
+                            //             type: 1,
+                            //             },
+                            //         ],
+                            //         headerType: "EMPTY",
+                            //     }},
+                            //     {
+                            //         contextInfo: {
+                            //         mentionedJid: [a],
+                            //         },
+                            //     }
+                            // )
+                            // console.log(JSON.stringify(message, undefined, 2));
+                            //
                         } else if (command == "pixiv") {
                             setImmediate(async () => {
                                 args.count = args.count ? args.count : 1;
                                 args.title = args.title ? args.title : "default";
                                 args.mode = args.mode ? args.mode : "safe";
+                                const paths = []
                                 
+                                const status = await sock.sendMessage(groupID, { text: "Gambar sedang di download... (Perkiraan 1x gambar = 10-20 detik)\n*Jika lebih dari perkiraan namun belum mendapatkan gambar, maka hubungi owner" }, { quoted: message });
                                 try {
-                                    const status = await sock.sendMessage(groupID, { text: "Gambar sedang di download...\n*Jika lebih dari 3 menit namun belum mendapatkan gambar, maka hubungi owner" }, { quoted: message });
-                                    const image = await searchImage(args.title, args.mode);
                                     for (let i = 1; i <= parseInt(args.count); i++) {
-                                        const randomImage = image[Math.floor(Math.random() * (image.length - 0 + 1) + 0)];
+                                        const pageRaw = await getPage(args.title, args.mode);
+                                        const page = Math.floor(Math.random() * (parseInt(pageRaw) - 1 + 1)) + 1;
+                                        console.log("Page : ", page);
+                                        const image = await searchImage(args.title, args.mode, page);
+                                        const imageIndex = Math.floor(Math.random() * (image.length - 0 + 1)) + 0;
+                                        console.log("Image index : ", imageIndex);
+                                        const randomImage = image[imageIndex];
                                         if (image && image.length > 0) {
                                             const imagePath = `${__dirname}/imageTemp/input/${randomImage.id}.jpg`;
                                             const originalUrl = await getImageLink(randomImage.id);
+                                            console.log("Image ID : ", randomImage.id);
                                             
-                                            await downloadImage(groupID, originalUrl, imagePath, randomImage.id, sock, status.key);
-                                            
-                                            const sendImage = await sock.sendMessage(groupID, {
-                                                image: {
-                                                    url: imagePath
-                                                },
+                                            await downloadImage(groupID, originalUrl, imagePath, randomImage.id, sock, status.key).then(async () => {
+                                                paths.push({url: imagePath});
+                                                sock.sendMessage(groupID, { text: `Gambar sedang di download... [${paths.length}/${args.count}]\n\n*Jika lebih dari 3 menit namun belum terdapat peningkatan progress, maka harap report dengan cara japri ke nomor bot ini dengan menggunakan command\nbot!report -e "Download lama"`, edit: status.key });
+                                            }).catch(async (e) => {
+                                                sock.sendMessage(groupID, { text: `Salah satu gambar gagal didownload, harap lakukan DM/Japri melalui nomor ini dengan mengirimkan command sebagai berikut :`}, {quoted: message});
+                                                sock.sendMessage(groupID, {text: `bot!report -e "${e.message}"`})
                                             });
                                             
-                                            if (sendImage) {
-                                                fs.unlink(imagePath, (err) => {
-                                                    console.log("Error : ", err);
-                                                });
-                                            }
                                         }
                                     }
-                                    console.log(`Length : ${image.length}`);
+                                    for (const image of paths) {
+                                        const sendImage = await sock.sendMessage(groupID, {
+                                            image: image
+                                        });
+                                        
+                                        if (sendImage) {
+                                            fs.unlink(image.url.toString(), (err) => {
+                                                console.log("Error : ", err);
+                                            });
+                                        }
+                                    }
                                     sock.sendMessage(groupID, { text: `Berikut adalah gambar untuk tag ${args.title}\nJudul : ${args.title}\nMode : ${args.mode}` }, { quoted: message });
                                 } catch (e) {
                                     console.log("Tidak dapat mengirim gambar : ", e);
+                                    sock.sendMessage(groupID, { text: `Gambar gagal di download, harap lakukan DM/Japri melalui nomor ini dengan mengirimkan command sebagai berikut :`, edit: status.key, mentions: message.key.participant });
+                                    sock.sendMessage(groupID, {text: `bot!report -e "${e.message}"`})
                                 }
                             });
                         } else if (command == "setintro") {
@@ -158,16 +207,19 @@ async function connectToWhatsapp() {
                             } else {
                                 sock.sendMessage(groupID, { text: "Anda sedang tidak berada di grup" }, { quoted: message });
                             }
-                        }
-                    }
-                    
-                    if (command == "self") {
-                        if (isSelf) {
-                            isSelf = false;
-                            sock.sendMessage(groupID, { text: "Bot kembali aktif!" });
-                        } else {
-                            isSelf = true;
-                            sock.sendMessage(groupID, { text: "Bot telah di self, tidak akan merespon command" });
+                        } else if (command == "report" && message.key.remoteJid.includes('@s.whatsapp.net') && args.e) {
+                            sock.sendMessage('6287743160171@s.whatsapp.net', { text: `Terdapat error pada saat penggunaan bot dengan rincian berikut :\nReporter : ${message.key.remoteJid} | ${userName}\nError Code: ${args.e}` });
+                            sock.sendMessage(groupID, { text: "Terima kasih telah report error ini, owner sedang mencoba untuk memperbaiki" }, {quoted: message});
+                        } 
+                    } else {
+                        if (command == "self") {
+                            if (isSelf) {
+                                isSelf = false;
+                                sock.sendMessage(groupID, { text: "Bot kembali aktif!" });
+                            } else {
+                                isSelf = true;
+                                sock.sendMessage(groupID, { text: "Bot telah di self, tidak akan merespon command" });
+                            }
                         }
                     }
                 }

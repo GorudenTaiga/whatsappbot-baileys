@@ -1,11 +1,10 @@
-import axios from 'axios';
-import fs from 'fs';
+const axios = require('axios');
+const fs = require('fs');
 
         
-async function searchImage(title, mode) {
+async function searchImage(title, mode, page) {
     try {
-        console.log(process.env.PIXIV_SESSID);
-        const response = await axios.get(`https://www.pixiv.net/ajax/search/artworks/${title}?word=${title}&mode=${mode}`, {
+        const response = await axios.get(`https://www.pixiv.net/ajax/search/artworks/${title}?word=${title}&mode=${mode}&p=${page}`, {
             headers: {
                 'User-Agent' : 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
                 'Referer' : 'https://www.pixiv.net/',
@@ -19,6 +18,27 @@ async function searchImage(title, mode) {
             return null;
         }
         return illustrations;
+    } catch (e) {
+        console.log("Error : ", e);
+    }
+}
+
+async function getPage(title, mode) {
+    try {
+        const response = await axios.get(`https://www.pixiv.net/ajax/search/artworks/${title}?word=${title}&mode=${mode}`, {
+            headers: {
+                'User-Agent' : 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
+                'Referer' : 'https://www.pixiv.net/',
+                'Accept-Encoding' : 'gzip,deflate,br,zstd',
+                'Cookie': process.env.PIXIV_SESSID
+            },
+        });
+
+        const page = response.data.body.illustManga.lastPage;
+        if (!page || page === 0) {
+            return null;
+        }
+        return page;
     } catch (e) {
         console.log("Error : ", e);
     }
@@ -73,4 +93,4 @@ async function downloadImage(jid, url, path, id, sock, status) {
     }
 }
 
-export {downloadImage, getImageLink, searchImage}
+module.exports = {downloadImage, getImageLink, searchImage, getPage}
