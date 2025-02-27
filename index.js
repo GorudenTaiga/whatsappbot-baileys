@@ -12,6 +12,18 @@ const { downloadImage, getImageLink, searchImage, getPage } = require('./command
 const path = require('path');
 const { WebSocketClient } = require('baileys/lib/Socket/Client');
 const { stringify } = require('querystring');
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+    res.send("Bot is running!");
+});
+
+app.listen(3000, () => {
+    console.log("Server is running on port 3000");
+    connectToWhatsapp();
+});
+
 
 
 async function connectToWhatsapp() {
