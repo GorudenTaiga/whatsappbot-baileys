@@ -12,7 +12,7 @@ const { downloadImage, getImageLink, searchImage, getPage } = require('./command
 const path = require('path');
 const { WebSocketClient } = require('baileys/lib/Socket/Client');
 const { stringify } = require('querystring');
-const express = require("express");
+const express = require('express');
 const app = express();
 
 app.get("/", (req, res) => {
