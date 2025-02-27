@@ -12,17 +12,6 @@ const { downloadImage, getImageLink, searchImage, getPage } = require('./command
 const path = require('path');
 const { WebSocketClient } = require('baileys/lib/Socket/Client');
 const { stringify } = require('querystring');
-const express = require('express');
-const app = express();
-
-app.get("/", (req, res) => {
-    res.send("Bot is running!");
-});
-
-app.listen(3000, () => {
-    console.log("Server is running on port 3000");
-    connectToWhatsapp();
-});
 
 
 
@@ -44,8 +33,8 @@ async function connectToWhatsapp() {
           output: process.stdout,
         });
         const question = (text) => new Promise((resolve) => rl.question(text, resolve));
-        const number = await question("Enter number : ")
-        const code = await sock.requestPairingCode(number)
+        // const number = await question("Enter number : ")
+        const code = await sock.requestPairingCode('6285942573569')
         console.log(code);
     }
 
@@ -310,7 +299,5 @@ function parseArguments(input) {
     }
     return args;
 }
-
-
 
 connectToWhatsapp();
