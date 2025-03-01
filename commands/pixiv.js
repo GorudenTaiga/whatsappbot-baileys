@@ -6,7 +6,7 @@ async function searchImage(title, mode, page) {
     try {
         const response = await axios.get(`https://www.pixiv.net/ajax/search/artworks/${title}?word=${title}&mode=${mode}&p=${page}`, {
             headers: {
-                'User-Agent' : 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
+                'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36 Mozilla/5.0 (X11; Linux x86_64; rv:10.0)',
                 'Referer' : 'https://www.pixiv.net/',
                 'Accept-Encoding' : 'gzip,deflate,br,zstd',
                 'Cookie': process.env.PIXIV_SESSID
@@ -27,7 +27,7 @@ async function getPage(title, mode) {
     try {
         const response = await axios.get(`https://www.pixiv.net/ajax/search/artworks/${title}?word=${title}&mode=${mode}`, {
             headers: {
-                'User-Agent' : 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
+                'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36 Mozilla/5.0 (X11; Linux x86_64; rv:10.0)',
                 'Referer' : 'https://www.pixiv.net/',
                 'Accept-Encoding' : 'gzip,deflate,br,zstd',
                 'Cookie': process.env.PIXIV_SESSID
@@ -49,7 +49,7 @@ async function getImageLink(id) {
         url: `https://www.pixiv.net/ajax/illust/${id}`,
         method: 'get',
         headers: {
-            'User-Agent' : 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
+            'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36 Mozilla/5.0 (X11; Linux x86_64; rv:10.0)',
             'Referer' : `https://www.pixiv.net/artworks/${id}`,  
             'Accept-Encoding' : 'gzip,deflate,br,zstd',
             'Cookie' : process.env.PIXIV_SESSID
@@ -67,7 +67,7 @@ async function downloadImage(jid, url, path, id, sock, status) {
             method: 'get',
             responseType: 'stream',
             headers: {
-                'User-Agent' : 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
+                'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36 Mozilla/5.0 (X11; Linux x86_64; rv:10.0)',
                 'Referer' : `https://www.pixiv.net/member_illust.php?mode=medium&illust_id=${id}`,
                 'Accept-Encoding' : 'gzip,deflate,br,zstd',
                 'Cookie' : process.env.PIXIV_SESSID
