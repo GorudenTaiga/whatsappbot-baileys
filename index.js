@@ -209,7 +209,7 @@ async function connectToWhatsapp() {
                                 sock.sendMessage(groupID, { text: "Anda sedang tidak berada di grup" }, { quoted: message });
                             }
                         } else if (command == "report" && message.key.remoteJid.includes('@s.whatsapp.net') && args.e) {
-                            sock.sendMessage('6287743160171@s.whatsapp.net', { text: `Terdapat error pada saat penggunaan bot dengan rincian berikut :\nReporter : ${message.key.remoteJid} | ${userName}\nError Code: ${args.e}` });
+                            sock.sendMessage(process.env.OWNER_NUMBER + '@s.whatsapp.net', { text: `Terdapat error pada saat penggunaan bot dengan rincian berikut :\nReporter : ${message.key.remoteJid} | ${userName}\nError Code: ${args.e}` });
                             sock.sendMessage(groupID, { text: "Terima kasih telah report error ini, owner sedang mencoba untuk memperbaiki" }, {quoted: message});
                         } 
                     } else {
