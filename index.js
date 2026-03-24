@@ -34,7 +34,7 @@ async function connectToWhatsapp() {
         });
         const question = (text) => new Promise((resolve) => rl.question(text, resolve));
         // const number = await question("Enter number : ")
-        const code = await sock.requestPairingCode('6285942573569')
+        const code = await sock.requestPairingCode(process.env.BOT_NUMBER)
         console.log(code);
     }
 
